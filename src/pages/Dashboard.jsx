@@ -6,6 +6,10 @@ import './Dashboard.css'; // Ensure this CSS file is correctly imported
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'; // Import Recharts components
 import Calendar from 'react-calendar'; // Import react-calendar
 import 'react-calendar/dist/Calendar.css'; // Import calendar styles
+import CryptoJS from 'crypto-js'; // Import CryptoJS for decryption
+
+// Use the provided decryption key
+const DECRYPTION_KEY = '4x^6!m$7gQ&9n8F*r1zW@b5k0jL#3xD';
 
 const Dashboard = () => {
     const [patientCount, setPatientCount] = useState(0);
@@ -13,19 +17,31 @@ const Dashboard = () => {
     const [chartData, setChartData] = useState([]);
     const [selectedDate, setSelectedDate] = useState(new Date()); // For calendar date selection
 
+    // Decryption function using AES
+    const decryptData = (encryptedData) => {
+        try {
+            const bytes = CryptoJS.AES.decrypt(encryptedData, DECRYPTION_KEY);
+            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+            return decrypted;
+        } catch (error) {
+            console.error('Error decrypting data: ', error);
+            return null;
+        }
+    };
+
     useEffect(() => {
         const fetchCounts = async () => {
             try {
-                // Count the number of documents in the Appointments collection using their IDs
+                // Count the number of documents in the Appointments collection
                 const appointmentsCollection = collection(db, 'Appointments');
                 const appointmentsSnapshot = await getDocs(appointmentsCollection);
-                const appointmentIds = appointmentsSnapshot.docs.map(doc => doc.id); // Get document IDs
-                setPatientCount(appointmentIds.length); // Set patient count based on the number of document IDs
+                const appointmentIds = appointmentsSnapshot.docs.map(doc => doc.id);
+                setPatientCount(appointmentIds.length);
 
                 // Fetch Prescription Count from the Prescriptions collection
                 const prescriptionsCollection = collection(db, 'prescriptions');
                 const prescriptionsSnapshot = await getDocs(prescriptionsCollection);
-                setPrescriptionCount(prescriptionsSnapshot.size); // Count of prescriptions
+                setPrescriptionCount(prescriptionsSnapshot.size);
 
                 // Fetch chart data for prescriptions by weekday
                 const prescriptionsByDay = {
@@ -39,19 +55,24 @@ const Dashboard = () => {
                 };
 
                 prescriptionsSnapshot.docs.forEach(prescription => {
-                    const prescriptionDate = new Date(prescription.data().prescriptionDate.seconds * 1000);
-                    const weekday = getWeekdayName(prescriptionDate); // Get weekday name
+                    const prescriptionData = prescription.data();
+                    const decryptedDate = decryptData(prescriptionData.prescriptionsDate); // Decrypt prescriptionsDate
+                    const prescriptionsDate = new Date(decryptedDate); // Create Date object from decrypted data
+                    const weekday = getWeekdayName(prescriptionsDate); // Get weekday name
 
+                    // Check if the weekday is valid
                     if (prescriptionsByDay[weekday] !== undefined) {
-                        prescriptionsByDay[weekday] += 1; // Count prescriptions for each weekday
+                        prescriptionsByDay[weekday] += 1; // Increment count for that weekday
                     }
                 });
 
+                // Prepare chart data
                 const chartData = Object.keys(prescriptionsByDay).map(weekday => ({
                     weekday,
                     prescriptions: prescriptionsByDay[weekday],
                 }));
 
+                console.log("Chart Data: ", chartData); // Log the chart data for debugging
                 setChartData(chartData);
             } catch (error) {
                 console.error("Error fetching data: ", error);
@@ -59,7 +80,6 @@ const Dashboard = () => {
         };
 
         fetchCounts(); // Call the fetchCounts function to get the data
-
     }, []);
 
     const getWeekdayName = (date) => {
@@ -90,11 +110,11 @@ const Dashboard = () => {
                 <div className="chart-calendar-container"> {/* Flex container to hold both chart and calendar */}
                     <div className="chart">
                         <h3>Weekly Progress</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={chartData} margin={{ top: 30, right: 30, left: 20, bottom: 5 }}>
+                        <ResponsiveContainer width="100%" height={280}>
+                            <BarChart data={chartData} margin={{ top: 30, right: 30, left: 10, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="weekday" /> {/* Use 'weekday' as X-axis dataKey */}
-                                <YAxis domain={[1, 50]} /> {/* Set Y-axis range from 1 to 50 */}
+                                <XAxis dataKey='weekday' /> {/* Use 'weekday' as X-axis dataKey */}
+                                <YAxis domain={[0, Math.max(...chartData.map(data => data.prescriptions), 30)]} /> {/* Set Y-axis range dynamically */}
                                 <Tooltip />
                                 <Bar dataKey="prescriptions" fill="#82ca9d" />
                             </BarChart>

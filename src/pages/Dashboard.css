@@ -83,6 +83,9 @@
     font-size: 1rem;
     color: #333;
 }
+.recharts-surface{
+    color: #ffc107;
+}
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
@@ -116,7 +119,8 @@
 .chart-calendar-container {
     display: flex;
     justify-content: space-between;
-    gap: 500px;
+    gap: 200px; 
+    width: 500%;
 }
 
 .chart {

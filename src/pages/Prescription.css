@@ -49,11 +49,23 @@
     background-color: #f2f2f2;
   }
   
-  button {
+  .prescription-btn {
     padding: 5px 10px;
     background-color: #007bff;
-    color: #fff;
+    
     border: none;
     border-radius: 5px;
     cursor: pointer;
   }
+  .prescription-container{
+
+    margin-left: 5%;
+  }
+  .prescription-table{
+    width: 100%
+  }
+  .back-button-container{
+    margin-top: -30%;
+    cursor: pointer;
+  }
+  

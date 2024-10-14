@@ -1,15 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase-config'; // Ensure correct path to firebase config
+import CryptoJS from 'crypto-js'; // Import CryptoJS for decryption
 import './Prescription.css';
+
+// Use the provided decryption key
+const DECRYPTION_KEY = '4x^6!m$7gQ&9n8F*r1zW@b5k0jL#3xD';
 
 function PrescriptionsList() {
   const [prescriptions, setPrescriptions] = useState([]);
-  const [appointments, setAppointments] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredPrescriptions, setFilteredPrescriptions] = useState([]);
 
-  // Fetch prescriptions and appointments from Firestore
+  // Decryption function using AES
+  const decryptData = (encryptedData) => {
+    try {
+      const bytes = CryptoJS.AES.decrypt(encryptedData, DECRYPTION_KEY);
+      const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+      return decrypted;
+    } catch (error) {
+      console.error('Error decrypting data: ', error);
+      return null; // Return null on error
+    }
+  };
+
+  // Fetch prescriptions from Firestore
   useEffect(() => {
     const fetchPrescriptions = async () => {
       try {
@@ -17,61 +32,41 @@ function PrescriptionsList() {
         const prescriptionsSnapshot = await getDocs(prescriptionsCollection);
         const prescriptionsData = prescriptionsSnapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
+          appointmentNo: decryptData(doc.data().appointmentNo), // Decrypt appointmentNo
+          phoneNumber: decryptData(doc.data().phoneNumber), // Decrypt phoneNumber
+          patient: decryptData(doc.data().patient), // Decrypt patient name
         }));
         setPrescriptions(prescriptionsData);
+        setFilteredPrescriptions(prescriptionsData); // Set initial filtered prescriptions
       } catch (error) {
         console.error("Error fetching prescriptions: ", error);
       }
     };
 
-    const fetchAppointments = async () => {
-      try {
-        const appointmentsCollection = collection(db, 'Appointments');
-        const appointmentsSnapshot = await getDocs(appointmentsCollection);
-        const appointmentsData = appointmentsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setAppointments(appointmentsData); // Store appointments in state
-      } catch (error) {
-        console.error("Error fetching appointments: ", error);
-      }
-    };
-
     fetchPrescriptions();
-    fetchAppointments();
   }, []);
 
-  // Define handleSearch function to filter prescriptions based on search query and appointments
-  const handleSearch = () => {
-    const searchText = searchQuery.toLowerCase();
-    
-    // Filter prescriptions by search text (patient name, email, appointmentId)
-    const filtered = prescriptions.filter(prescription => {
-      return (
-        (prescription.patientName?.toLowerCase() || '').includes(searchText) || 
-        (prescription.email?.toLowerCase() || '').includes(searchText) ||
-        (prescription.appointmentId?.toLowerCase() || '').includes(searchText)
-      );
-    });
-
-    // Further filter prescriptions by matching them with appointmentNumber from Appointments
-    const filteredByAppointment = filtered.filter(prescription =>
-      appointments.some(appointment => appointment.appointmentNumber === prescription.appointmentId)
-    );
-
-    setFilteredPrescriptions(filteredByAppointment);
-  };
-
-  // Re-run handleSearch whenever searchQuery, prescriptions, or appointments change
+  // Filter prescriptions based on search query
   useEffect(() => {
     handleSearch();
-  }, [searchQuery, prescriptions, appointments]);
+  }, [searchQuery, prescriptions]);
+
+  const handleSearch = () => {
+    const searchText = searchQuery.toLowerCase();
+    const filtered = prescriptions.filter(prescription => {
+      return (
+        (prescription.patient?.toLowerCase() || '').includes(searchText) ||
+        (prescription.phoneNumber?.toLowerCase() || '').includes(searchText) ||
+        (prescription.appointmentNo?.toLowerCase() || '').includes(searchText)
+      );
+    });
+    setFilteredPrescriptions(filtered);
+  };
 
   const handleViewPrescription = (prescription) => {
     console.log('Viewing prescription:', prescription);
-    alert(`Prescription for ${prescription.patientName}: ${prescription.medicineName}`);
+    alert(`Prescription for ${prescription.patient}: ${prescription.medicineName}`);
   };
 
   return (
@@ -80,27 +75,27 @@ function PrescriptionsList() {
       <div className="search-bar">
         <input
           type="text"
-          placeholder="Search by name, email, or appointment number"
+          placeholder="Search by patient name, phone number, or appointment number"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)} // Updates searchQuery on user input
+          onChange={(e) => setSearchQuery(e.target.value)} // Update search query state on input
         />
-        <button onClick={handleSearch}>Search</button> {/* Calls handleSearch on button click */}
+        <button onClick={handleSearch}>Search</button> {/* Search button for manual search */}
       </div>
       <table>
         <thead>
           <tr>
             <th>Appointment No</th>
-            <th>Patient Name</th>
-            <th>Email</th>
+            <th>Phone Number</th>
+            <th>Patient</th>
             <th>Prescription</th>
           </tr>
         </thead>
         <tbody>
           {filteredPrescriptions.map((prescription, index) => (
             <tr key={index}>
-              <td>{prescription.appointmentId}</td> {/* Matches appointmentNumber */}
-              <td>{prescription.patientName}</td>
-              <td>{prescription.email}</td>
+              <td>{prescription.appointmentNo}</td> {/* Displaying decrypted appointmentNo */}
+              <td>{prescription.phoneNumber}</td> {/* Displaying decrypted phoneNumber */}
+              <td>{prescription.patient}</td> {/* Display decrypted patient name */}
               <td>
                 <button onClick={() => handleViewPrescription(prescription)}>
                   View Prescription

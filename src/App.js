@@ -21,6 +21,7 @@ function AppContent() {
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/prescription" element={<Prescription />} />
                         <Route path="/view" element={<View />} />
+                  
                         
                     </Routes>
                 </div>
